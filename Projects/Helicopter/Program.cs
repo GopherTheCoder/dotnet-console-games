@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 
 TimeSpan threadSleepTimeSpan = TimeSpan.FromMilliseconds(10);
@@ -172,8 +173,7 @@ while (true)
 		{
 			if (ufo.Left < width)
 			{
-				Console.SetCursorPosition(ufo.Left, ufo.Top);
-				Erase(ufoRenders[ufo.Frame]);
+				Update(ufo.Left, ufo.Top, ufo.Left - 1, ufo.Top, ufoRenders[ufo.Frame]);
 			}
 			ufo.Left--;
 			if (ufo.Left <= 0)
@@ -190,22 +190,25 @@ while (true)
 
 	#region Update Player
 
-	bool playerRenderRequired = false;
 	if (Console.KeyAvailable)
 	{
 		switch (Console.ReadKey(true).Key)
 		{
 			case ConsoleKey.UpArrow:
-				Console.SetCursorPosition(player.Left, player.Top);
-				Render(helicopterRenders[default], true);
-				player.Top = Math.Max(player.Top - 1, 0);
-				playerRenderRequired = true;
+				{
+					int newTop = Math.Max(player.Top - 1, 0);
+					Update(player.Left, player.Top, player.Left, newTop,
+							helicopterRenders[helicopterRender ? 1 : 2]);
+					player.Top = newTop;
+				}
 				break;
 			case ConsoleKey.DownArrow:
-				Console.SetCursorPosition(player.Left, player.Top);
-				Render(helicopterRenders[default], true);
-				player.Top = Math.Min(player.Top + 1, height - 3);
-				playerRenderRequired = true;
+				{
+					int newTop = Math.Min(player.Top + 1, height - 3);
+					Update(player.Left, player.Top, player.Left, newTop,
+							helicopterRenders[helicopterRender ? 1 : 2]);
+					player.Top = newTop;
+				}
 				break;
 			case ConsoleKey.RightArrow:
 				bullets.Add(new Bullet
@@ -302,25 +305,8 @@ while (true)
 	{
 		helicopterRender = !helicopterRender;
 		stopwatchHelicopter.Restart();
-		playerRenderRequired = true;
-	}
-	if (playerRenderRequired)
-	{
 		Console.SetCursorPosition(player.Left, player.Top);
 		Render(helicopterRenders[helicopterRender ? 1 : 2]);
-	}
-
-	#endregion
-
-	#region Render UFOs
-
-	foreach (UFO ufo in ufos)
-	{
-		if (ufo.Left < width)
-		{
-			Console.SetCursorPosition(ufo.Left, ufo.Top);
-			Render(ufoRenders[ufo.Frame]);
-		}
 	}
 
 	#endregion
@@ -336,6 +322,34 @@ while (true)
 	#endregion
 
 	Thread.Sleep(threadSleepTimeSpan);
+}
+
+void Update(int oldLeft, int oldTop, int newLeft, int newTop, string @string)
+{
+	string[] dummy = @string.Split('\n');
+	int stringHeight = dummy.Count();
+	int stringWidth = dummy[0].Count();
+
+	int oldRight = Math.Min(oldLeft + stringWidth, width);
+	int oldBottom = Math.Min(oldTop + stringHeight, height);
+	int newRight = Math.Min(newLeft + stringWidth, width);
+	int newBottom = Math.Min(newTop + stringHeight, height);
+
+	// Erase non-overlapping part of old
+	for (int x = oldLeft; x < oldRight; x++)
+	{
+		for (int y = oldTop; y < oldBottom; y++)
+		{
+			if (!(x >= newLeft && x < newRight && y >= newTop && y < newBottom))
+			{
+				Console.SetCursorPosition(x, y);
+				Console.Write(' ');
+			}
+		}
+	}
+
+	Console.SetCursorPosition(newLeft, newTop);
+	Render(@string, true);
 }
 
 void Render(string @string, bool renderSpace = false)
